@@ -202,5 +202,101 @@ namespace ManufacturingToolTracker.Tests
         }
 
 
+        [Fact]
+        public async Task Return_ExceedsNotYetReturnedQuantity_RejectsRequest()
+        {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json")
+                .Build();
+
+            var connectionString =
+                configuration.GetConnectionString("TestConnection");
+
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(connectionString)
+                .Options;
+
+            await using var context = new ApplicationDbContext(options);
+
+            var tool = new Tool
+            {
+                ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                Name = "Test Tool",
+                Quantity = 8,
+                Status = "Available"
+            };
+
+            context.Tools.Add(tool);
+            await context.SaveChangesAsync();
+
+            try
+            {
+                // Arrange: record a checkout of 3 units.
+                context.ToolMovements.Add(new ToolMovement
+                {
+                    ToolId = tool.Id,
+                    Action = ToolMovementActions.Checkout,
+                    Quantity = 3,
+                    PerformedBy = "Automated Test"
+                });
+
+                // Arrange: record a return of 1 unit.
+                context.ToolMovements.Add(new ToolMovement
+                {
+                    ToolId = tool.Id,
+                    Action = ToolMovementActions.Return,
+                    Quantity = 1,
+                    PerformedBy = "Automated Test"
+                });
+
+                await context.SaveChangesAsync();
+
+                var controller = new ToolMovementsController(context);
+
+                // Act: only 2 units remain eligible for return.
+                var dto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Return,
+                    Quantity = 3,
+                    PerformedBy = "Automated Test"
+                };
+
+                var result = await controller.CreateMovement(tool.Id, dto);
+
+                // Assert: the return is rejected.
+                Assert.IsType<BadRequestObjectResult>(result.Result);
+
+                context.ChangeTracker.Clear();
+
+                var movementCount = await context.ToolMovements
+                    .CountAsync(movement => movement.ToolId == tool.Id);
+
+                var savedTool = await context.Tools
+                    .AsNoTracking()
+                    .SingleAsync(item => item.Id == tool.Id);
+
+                Assert.Equal(2, movementCount);
+                Assert.Equal(8, savedTool.Quantity);
+            }
+            finally
+            {
+                var movements = await context.ToolMovements
+                    .Where(item => item.ToolId == tool.Id)
+                    .ToListAsync();
+
+                context.ToolMovements.RemoveRange(movements);
+
+                var savedTool = await context.Tools.FindAsync(tool.Id);
+
+                if (savedTool is not null)
+                {
+                    context.Tools.Remove(savedTool);
+                }
+
+                await context.SaveChangesAsync();
+            }
+        }
+
     }
 }

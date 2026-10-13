@@ -1,4 +1,6 @@
 ﻿
+using System.ComponentModel.DataAnnotations;
+
 namespace ManufacturingToolTracker.Api.Models;
 public class Tool
 {
@@ -13,4 +15,7 @@ public class Tool
     public int Quantity { get; set; }
 
     public string Status { get; set; } = "Available";
+
+    [Timestamp]
+    public byte[] Version { get; set; } = [];
 }

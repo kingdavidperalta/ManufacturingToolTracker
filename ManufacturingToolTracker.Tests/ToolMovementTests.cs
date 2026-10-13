@@ -698,6 +698,125 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         }
 
 
+        [Fact]
+        public async Task Repair_ExceedsNotYetRepairedQuantity_RejectsRequest()
+        {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json")
+                .Build();
+
+            var connectionString =
+                configuration.GetConnectionString("TestConnection");
+
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(connectionString)
+                .Options;
+
+            await using var context = new ApplicationDbContext(options);
+
+            var tool = new Tool
+            {
+                ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                Name = "Test Tool",
+                Quantity = 5,
+                Status = "Available"
+            };
+
+            context.Tools.Add(tool);
+            await context.SaveChangesAsync();
+
+            try
+            {
+                var controller = new ToolMovementsController(context);
+
+                // Damage 3 tools through the controller.
+                var damageResult = await controller.CreateMovement(
+                    tool.Id,
+                    new CreateToolMovementDto
+                    {
+                        Action = ToolMovementActions.Damage,
+                        Quantity = 3,
+                        PerformedBy = "Automated Test"
+                    });
+
+                Assert.IsType<CreatedAtActionResult>(damageResult.Result);
+
+                // Repair 1 tool through the controller.
+                var repairResult = await controller.CreateMovement(
+                    tool.Id,
+                    new CreateToolMovementDto
+                    {
+                        Action = ToolMovementActions.Repair,
+                        Quantity = 1,
+                        PerformedBy = "Automated Test"
+                    });
+
+                Assert.IsType<CreatedAtActionResult>(repairResult.Result);
+
+                // Only 2 damaged tools remain unrepaired.
+                // Attempt to repair 3, which must be rejected.
+                var invalidRepairResult = await controller.CreateMovement(
+                    tool.Id,
+                    new CreateToolMovementDto
+                    {
+                        Action = ToolMovementActions.Repair,
+                        Quantity = 3,
+                        PerformedBy = "Automated Test"
+                    });
+
+                Assert.IsType<BadRequestObjectResult>(
+                    invalidRepairResult.Result);
+
+                // Verify stock remains unchanged after the rejected request.
+                context.ChangeTracker.Clear();
+
+                var savedTool = await context.Tools
+                    .AsNoTracking()
+                    .SingleAsync(item => item.Id == tool.Id);
+
+                Assert.Equal(3, savedTool.Quantity);
+
+                // Verify the rejected repair was not recorded.
+                var movements = await context.ToolMovements
+                    .AsNoTracking()
+                    .Where(item => item.ToolId == tool.Id)
+                    .ToListAsync();
+
+                Assert.Equal(2, movements.Count);
+
+                Assert.Equal(
+                    3,
+                    movements
+                        .Where(item => item.Action == ToolMovementActions.Damage)
+                        .Sum(item => item.Quantity));
+
+                Assert.Equal(
+                    1,
+                    movements
+                        .Where(item => item.Action == ToolMovementActions.Repair)
+                        .Sum(item => item.Quantity));
+            }
+            finally
+            {
+                var movements = await context.ToolMovements
+                    .Where(item => item.ToolId == tool.Id)
+                    .ToListAsync();
+
+                context.ToolMovements.RemoveRange(movements);
+
+                var savedTool = await context.Tools
+                    .SingleOrDefaultAsync(item => item.Id == tool.Id);
+
+                if (savedTool is not null)
+                {
+                    context.Tools.Remove(savedTool);
+                }
+
+                await context.SaveChangesAsync();
+            }
+        }
+
 
     }
 }

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ManufacturingToolTracker.Api.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/Tools/{toolId:int}/Movements")]
     [ApiController]
     public class ToolMovementsController : ControllerBase
     {
@@ -76,6 +76,24 @@ namespace ManufacturingToolTracker.Api.Controllers
                 Remarks = dto.Remarks,
                 CreatedAt = DateTime.UtcNow
             };
+
+
+            var allowedActions = new[]
+            {
+                ToolMovementActions.Checkout,
+                ToolMovementActions.Return,
+                ToolMovementActions.Repair,
+                ToolMovementActions.Damage
+            };
+
+            if (!allowedActions.Contains(dto.Action, StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid action. Allowed actions are Checkout, Return, Repair, and Damage."
+                });
+            }
+
 
             _context.ToolMovements.Add(movement);
             await _context.SaveChangesAsync();

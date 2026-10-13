@@ -17,5 +17,8 @@ namespace ManufacturingToolTracker.Api.DTOs.Tools
 
         [Range(0, int.MaxValue)]
         public int Quantity { get; set; }
+
+        [Required]
+        public byte[] Version { get; set; } = [];
     }
 }

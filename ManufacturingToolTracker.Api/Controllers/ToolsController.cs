@@ -29,7 +29,8 @@ namespace ManufacturingToolTracker.Api.Controllers
                     Name = tool.Name,
                     Description = tool.Description,
                     Quantity = tool.Quantity,
-                    Status = tool.Status
+                    Status = tool.Status,
+                    Version = tool.Version
                 })
                 .ToListAsync();
 
@@ -49,7 +50,8 @@ namespace ManufacturingToolTracker.Api.Controllers
                     Name = tool.Name,
                     Description = tool.Description,
                     Quantity = tool.Quantity,
-                    Status = tool.Status
+                    Status = tool.Status,
+                    Version = tool.Version
                 })
                 .FirstOrDefaultAsync();
 
@@ -105,12 +107,34 @@ namespace ManufacturingToolTracker.Api.Controllers
                 return NotFound();
             }
 
+            if (!tool.Version.SequenceEqual(dto.Version))
+            {
+                return Conflict(new
+                {
+                    message = "This tool was updated by another user. Retrieve the latest version and try again."
+                });
+            }
+
             tool.ToolCode = dto.ToolCode;
             tool.Name = dto.Name;
             tool.Description = dto.Description;
             tool.Quantity = dto.Quantity;
 
-            await _context.SaveChangesAsync();
+            _context.Entry(tool)
+                 .Property(t => t.Version)
+                 .OriginalValue = dto.Version;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(new
+                {
+                    message = "This tool was updated by another user. Retrieve the latest version and try again."
+                });
+            }
 
             return NoContent();
         }

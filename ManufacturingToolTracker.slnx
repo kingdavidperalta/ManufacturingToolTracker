@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/.github/" />
+  <Folder Name="/.github/workflows/">
+    <File Path="dotnet.yml" />
+  </Folder>
   <Project Path="ManufacturingToolTracker.Api/ManufacturingToolTracker.Api.csproj" />
   <Project Path="ManufacturingToolTracker.Tests/ManufacturingToolTracker.Tests.csproj" />
 </Solution>

@@ -76,6 +76,17 @@ namespace ManufacturingToolTracker.Api.Controllers
                 Status = "Available"
             };
 
+            var codeExists = await _context.Tools
+                .AnyAsync(t => t.ToolCode == dto.ToolCode);
+
+            if (codeExists)
+            {
+                return Conflict(new
+                {
+                    message = "A tool with this code already exists."
+                });
+            }
+
             _context.Tools.Add(tool);
             await _context.SaveChangesAsync();
 
@@ -112,6 +123,17 @@ namespace ManufacturingToolTracker.Api.Controllers
                 return Conflict(new
                 {
                     message = "This tool was updated by another user. Retrieve the latest version and try again."
+                });
+            }
+
+            var codeExists = await _context.Tools
+                .AnyAsync(t => t.ToolCode == dto.ToolCode && t.Id != id);
+
+            if (codeExists)
+            {
+                return Conflict(new
+                {
+                    message = "A tool with this code already exists."
                 });
             }
 

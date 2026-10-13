@@ -78,6 +78,16 @@ namespace ManufacturingToolTracker.Api.Controllers
                 });
             }
 
+
+            if (dto.Quantity <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Quantity must be greater than zero."
+                });
+            }
+
+
             var tool = await _context.Tools
                 .FirstOrDefaultAsync(tool => tool.Id == toolId);
 

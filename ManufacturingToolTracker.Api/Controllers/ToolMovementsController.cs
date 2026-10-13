@@ -56,6 +56,28 @@ namespace ManufacturingToolTracker.Api.Controllers
             int toolId, 
             CreateToolMovementDto dto)
         {
+            var allowedActions = new[]
+          {
+            ToolMovementActions.Checkout,
+            ToolMovementActions.Return,
+            ToolMovementActions.Repair,
+            ToolMovementActions.Damage
+        };
+
+            var action = allowedActions.FirstOrDefault(
+                allowedAction => string.Equals(
+                    allowedAction,
+                    dto.Action,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (action is null)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid action. Allowed actions are Checkout, Return, Repair, and Damage."
+                });
+            }
+
             var tool = await _context.Tools
                 .FirstOrDefaultAsync(tool => tool.Id == toolId);
 
@@ -67,36 +89,59 @@ namespace ManufacturingToolTracker.Api.Controllers
                 });
             }
 
+            var decreasesQuantity =
+                action == ToolMovementActions.Checkout ||
+                action == ToolMovementActions.Repair ||
+                action == ToolMovementActions.Damage;
+
+            if (decreasesQuantity && tool.Quantity < dto.Quantity)
+            {
+                return BadRequest(new
+                {
+                    message = "Insufficient available quantity."
+                });
+            }
+
+            if (decreasesQuantity)
+            {
+                tool.Quantity -= dto.Quantity;
+            }
+            else if (action == ToolMovementActions.Return)
+            {
+                if (tool.Quantity > int.MaxValue - dto.Quantity)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The resulting quantity exceeds the supported limit."
+                    });
+                }
+
+                tool.Quantity += dto.Quantity;
+            }
+
             var movement = new ToolMovement
             {
                 ToolId = toolId,
-                Action = dto.Action,
+                Action = action,
                 Quantity = dto.Quantity,
                 PerformedBy = dto.PerformedBy,
                 Remarks = dto.Remarks,
                 CreatedAt = DateTime.UtcNow
             };
 
+            _context.ToolMovements.Add(movement);
 
-            var allowedActions = new[]
+            try
             {
-                ToolMovementActions.Checkout,
-                ToolMovementActions.Return,
-                ToolMovementActions.Repair,
-                ToolMovementActions.Damage
-            };
-
-            if (!allowedActions.Contains(dto.Action, StringComparer.OrdinalIgnoreCase))
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
             {
-                return BadRequest(new
+                return Conflict(new
                 {
-                    message = "Invalid action. Allowed actions are Checkout, Return, Repair, and Damage."
+                    message = "This tool was updated by another user. Retrieve the latest quantity and try again."
                 });
             }
-
-
-            _context.ToolMovements.Add(movement);
-            await _context.SaveChangesAsync();
 
             var response = new ToolMovementResponseDto
             {

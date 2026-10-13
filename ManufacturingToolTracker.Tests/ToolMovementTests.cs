@@ -393,5 +393,82 @@ namespace ManufacturingToolTracker.Tests
             }
         }
 
+
+        [Fact]
+        public async Task Damage_ExceedsAvailableQuantity_RejectsRequest()
+        {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json")
+                .Build();
+
+            var connectionString =
+                configuration.GetConnectionString("TestConnection");
+
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(connectionString)
+                .Options;
+
+            await using var context = new ApplicationDbContext(options);
+
+            var tool = new Tool
+            {
+                ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                Name = "Test Tool",
+                Quantity = 5,
+                Status = "Available"
+            };
+
+            context.Tools.Add(tool);
+            await context.SaveChangesAsync();
+
+            try
+            {
+                var controller = new ToolMovementsController(context);
+
+                var dto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Damage,
+                    Quantity = 6,
+                    PerformedBy = "Automated Test"
+                };
+
+                // Act
+                var result = await controller.CreateMovement(tool.Id, dto);
+
+                // Assert: reject damage exceeding available quantity.
+                Assert.IsType<BadRequestObjectResult>(result.Result);
+
+                context.ChangeTracker.Clear();
+
+                var savedTool = await context.Tools
+                    .AsNoTracking()
+                    .SingleAsync(item => item.Id == tool.Id);
+
+                var movementCount = await context.ToolMovements
+                    .CountAsync(item => item.ToolId == tool.Id);
+
+                Assert.Equal(5, savedTool.Quantity);
+                Assert.Equal(0, movementCount);
+            }
+            finally
+            {
+                var movements = await context.ToolMovements
+                    .Where(item => item.ToolId == tool.Id)
+                    .ToListAsync();
+
+                context.ToolMovements.RemoveRange(movements);
+
+                var savedTool = await context.Tools.FindAsync(tool.Id);
+
+                if (savedTool is not null)
+                {
+                    context.Tools.Remove(savedTool);
+                }
+
+                await context.SaveChangesAsync();
+            }
+        }
+
     }
 }

@@ -57,12 +57,12 @@ namespace ManufacturingToolTracker.Api.Controllers
             CreateToolMovementDto dto)
         {
             var allowedActions = new[]
-          {
-            ToolMovementActions.Checkout,
-            ToolMovementActions.Return,
-            ToolMovementActions.Repair,
-            ToolMovementActions.Damage
-        };
+            {
+                ToolMovementActions.Checkout,
+                ToolMovementActions.Return,
+                ToolMovementActions.Damage,
+                ToolMovementActions.Repair
+            };
 
             var action = allowedActions.FirstOrDefault(
                 allowedAction => string.Equals(
@@ -74,7 +74,7 @@ namespace ManufacturingToolTracker.Api.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Invalid action. Allowed actions are Checkout, Return, Repair, and Damage."
+                    message = "Invalid action. Allowed actions are Checkout, Return, Damage, and Repair."
                 });
             }
 
@@ -89,10 +89,69 @@ namespace ManufacturingToolTracker.Api.Controllers
                 });
             }
 
+            // Validate that a return does not exceed
+            // the quantity checked out and not yet returned.
+            if (action == ToolMovementActions.Return)
+            {
+                var totalCheckedOut = await _context.ToolMovements
+                    .Where(movement =>
+                        movement.ToolId == toolId &&
+                        movement.Action == ToolMovementActions.Checkout)
+                    .SumAsync(movement => (long?)movement.Quantity) ?? 0L;
+
+                var totalReturned = await _context.ToolMovements
+                    .Where(movement =>
+                        movement.ToolId == toolId &&
+                        movement.Action == ToolMovementActions.Return)
+                    .SumAsync(movement => (long?)movement.Quantity) ?? 0L;
+
+                var notYetReturnedQuantity =
+                    totalCheckedOut - totalReturned;
+
+                if (dto.Quantity > notYetReturnedQuantity)
+                {
+                    return BadRequest(new
+                    {
+                        message = "Return quantity cannot exceed the quantity not yet returned."
+                    });
+                }
+            }
+
+            // Validate that a repair does not exceed
+            // the quantity damaged and not yet repaired.
+            if (action == ToolMovementActions.Repair)
+            {
+                var totalDamaged = await _context.ToolMovements
+                    .Where(movement =>
+                        movement.ToolId == toolId &&
+                        movement.Action == ToolMovementActions.Damage)
+                    .SumAsync(movement => (long?)movement.Quantity) ?? 0L;
+                
+                var totalRepaired = await _context.ToolMovements
+                    .Where(movement =>
+                        movement.ToolId == toolId &&
+                        movement.Action == ToolMovementActions.Repair)
+                    .SumAsync(movement => (long?)movement.Quantity) ?? 0L;
+
+                var notYetRepairedQuantity =
+                    totalDamaged - totalRepaired;
+
+                if (dto.Quantity > notYetRepairedQuantity)
+                {
+                    return BadRequest(new
+                    {
+                        message = "Repair quantity cannot exceed the quantity damaged and not yet repaired."
+                    });
+                }
+            }
+
             var decreasesQuantity =
                 action == ToolMovementActions.Checkout ||
-                action == ToolMovementActions.Repair ||
                 action == ToolMovementActions.Damage;
+
+            var increasesQuantity =
+                action == ToolMovementActions.Return ||
+                action == ToolMovementActions.Repair;
 
             if (decreasesQuantity && tool.Quantity < dto.Quantity)
             {
@@ -102,20 +161,21 @@ namespace ManufacturingToolTracker.Api.Controllers
                 });
             }
 
+            if (increasesQuantity &&
+                tool.Quantity > int.MaxValue - dto.Quantity)
+            {
+                return BadRequest(new
+                {
+                    message = "The resulting quantity exceeds the supported limit."
+                });
+            }
+
             if (decreasesQuantity)
             {
                 tool.Quantity -= dto.Quantity;
             }
-            else if (action == ToolMovementActions.Return)
+            else if (increasesQuantity)
             {
-                if (tool.Quantity > int.MaxValue - dto.Quantity)
-                {
-                    return BadRequest(new
-                    {
-                        message = "The resulting quantity exceeds the supported limit."
-                    });
-                }
-
                 tool.Quantity += dto.Quantity;
             }
 

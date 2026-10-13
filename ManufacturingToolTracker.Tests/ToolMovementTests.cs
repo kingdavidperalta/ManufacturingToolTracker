@@ -32,6 +32,8 @@ namespace ManufacturingToolTracker.Tests
 
             await using var context = new ApplicationDbContext(options);
 
+            await context.Database.MigrateAsync();
+
             var canConnect = await context.Database.CanConnectAsync();
 
             Assert.True(

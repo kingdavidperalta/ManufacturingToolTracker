@@ -1,0 +1,6 @@
+@ManufacturingToolTracker.Api_HostAddress = http://localhost:5278
+
+GET {{ManufacturingToolTracker.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

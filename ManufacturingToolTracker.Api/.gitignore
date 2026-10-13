@@ -1,0 +1,46 @@
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Visual Studio local files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local environment configuration and secrets
+appsettings.Development.json
+appsettings.Local.json
+.env
+.env.*
+!.env.example
+secrets.json
+
+# Certificates and private keys
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Logs and temporary files
+*.log
+logs/
+[Tt]emp/
+
+# Test results and coverage
+TestResults/
+coverage/
+
+# Local databases and backups
+*.mdf
+*.ldf
+*.bak
+
+# Operating system files
+.DS_Store
+Thumbs.db

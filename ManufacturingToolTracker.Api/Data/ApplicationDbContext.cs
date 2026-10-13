@@ -12,6 +12,7 @@ namespace ManufacturingToolTracker.Api.Data
 
 
         public DbSet<Tool> Tools => Set<Tool>();
+        public DbSet<ToolMovement> ToolMovements => Set<ToolMovement>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

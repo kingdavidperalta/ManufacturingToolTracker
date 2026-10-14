@@ -9,6 +9,32 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="..\..\..\api-iamge\flowchart\tool-movement-flowchart.png" Link="docs\images\flowchart\tool-movement-flowchart.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\get-api-tools-id-movements-not-found.png" Link="docs\images\tool-movements\get-api-tools-id-movements-not-found.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\get-api-tools-id-movements.png" Link="docs\images\tool-movements\get-api-tools-id-movements.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-checkout-bad-request.png" Link="docs\images\tool-movements\post-api-tools-id-movements-checkout-bad-request.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-checkout.png" Link="docs\images\tool-movements\post-api-tools-id-movements-checkout.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-damage-bad-request.png" Link="docs\images\tool-movements\post-api-tools-id-movements-damage-bad-request.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-damge.png" Link="docs\images\tool-movements\post-api-tools-id-movements-damge.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-repair-bad-request.png" Link="docs\images\tool-movements\post-api-tools-id-movements-repair-bad-request.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-repair.png" Link="docs\images\tool-movements\post-api-tools-id-movements-repair.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-return-bad-request.png" Link="docs\images\tool-movements\post-api-tools-id-movements-return-bad-request.png" />
+    <Content Include="..\..\..\api-iamge\tools-movement\post-api-tools-id-movements-return.png" Link="docs\images\tool-movements\post-api-tools-id-movements-return.png" />
+    <Content Include="..\..\..\api-iamge\tools\delete-api-tools-id-not-found.png" Link="docs\images\tools\delete-api-tools-id-not-found.png" />
+    <Content Include="..\..\..\api-iamge\tools\delete-api-tools-id.png" Link="docs\images\tools\delete-api-tools-id.png" />
+    <Content Include="..\..\..\api-iamge\tools\get-api-tools-id-not-found.png" Link="docs\images\tools\get-api-tools-id-not-found.png" />
+    <Content Include="..\..\..\api-iamge\tools\get-api-tools-id.png" Link="docs\images\tools\get-api-tools-id.png" />
+    <Content Include="..\..\..\api-iamge\tools\get-api-tools.png" Link="docs\images\tools\get-api-tools.png" />
+    <Content Include="..\..\..\api-iamge\tools\post-api-tools-conflict.png" Link="docs\images\tools\post-api-tools-conflict.png" />
+    <Content Include="..\..\..\api-iamge\tools\post-api-tools.png" Link="docs\images\tools\post-api-tools.png" />
+    <Content Include="..\..\..\api-iamge\tools\put-api-tools-id-conflict.png" Link="docs\images\tools\put-api-tools-id-conflict.png" />
+    <Content Include="..\..\..\api-iamge\tools\put-api-tools-id.png" Link="docs\images\tools\put-api-tools-id.png" />
+    <Content Include="..\..\..\clone-repository-1.png" Link="docs\images\clone-repo\clone-repository-1.png" />
+    <Content Include="..\..\..\clone-repository-2.png" Link="docs\images\clone-repo\clone-repository-2.png" />
+    <Content Include="..\..\..\entity-relationship.png" Link="docs\images\entity-relationship\entity-relationship.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11">
@@ -17,6 +43,14 @@
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.24.1-preview.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="docs\images\entity-relationship\" />
+    <Folder Include="docs\images\flowchart\" />
+    <Folder Include="docs\images\clone-repo\" />
+    <Folder Include="docs\images\tool-movements\" />
+    <Folder Include="docs\images\tools\" />
   </ItemGroup>
 
 </Project>

@@ -9,7 +9,6 @@ The project demonstrates practical backend development concepts, including RESTf
 - [About the Project](#about-the-project)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
-- [System Workflow](#system-workflow)
 - [Tool Movement Flowchart](#tool-movement-flowchart)
 - [Database Models](#database-models)
 - [Entity Relationship](#entity-relationship)
@@ -20,18 +19,13 @@ The project demonstrates practical backend development concepts, including RESTf
 - [Running the Tests](#running-the-tests)
 - [Concurrency Handling](#concurrency-handling)
 - [Continuous Integration](#continuous-integration)
-- [Screenshots](#screenshots)
 - [Project Structure](#project-structure)
 - [Future Improvements](#future-improvements)
 - [License](#license)
 
 ## About the Project
 
-Manufacturing environments use tools and equipment that need to be tracked to maintain inventory accuracy and accountability.
-
 The Manufacturing Tool Tracker provides an API for recording tool movements and maintaining available quantities. Each movement records an action, quantity, the person who performed it, remarks, and the date and time of the transaction.
-
-Instead of simply changing a tool's quantity, the application records movement history so that inventory changes can be reviewed later.
 
 The project also addresses concurrency issues that can occur when multiple users attempt to update the same tool at nearly the same time.
 
@@ -61,25 +55,6 @@ The project also addresses concurrency issues that can occur when multiple users
 | GitHub Actions | Automated build and test workflow |
 | Swagger / OpenAPI | API exploration and documentation, when enabled |
 
-## System Workflow
-
-The application follows a request-to-database workflow.
-
-```mermaid
-flowchart TD
-    A[Client or Swagger UI] --> B[ASP.NET Core Web API]
-    B --> C[ToolMovementsController]
-    C --> D[Validate Request]
-    D --> E{Request Valid?}
-    E -- No --> F[Return Error Response]
-    E -- Yes --> G[Load Tool and Check Business Rules]
-    G --> H{Movement Allowed?}
-    H -- No --> F
-    H -- Yes --> I[Update Tool and Create Movement]
-    I --> J[Entity Framework Core]
-    J --> K[(SQL Server)]
-    K --> L[Return HTTP Response]
-```
 
 ### Tool Movement Flowchart
 
@@ -121,6 +96,19 @@ The `ToolMovement` entity represents a recorded action involving a tool.
 | `CreatedAt` | Date and time the movement was recorded. |
 
 The `ToolMovement` entity maintains a history of inventory changes rather than relying only on the current quantity.
+
+### Action
+
+The `Action` identifies the type of tool movement recorded in the system.. 
+
+| Property | Description |
+|---|---|
+| `Checkout` | Records tools issued for use and decreases the available quantity. |
+| `Return` | Records tools returned after checkout and increases the available quantity. |
+| `Repair` | Records tools reported as damaged and decreases the available quantity. |
+| `Damange` | Records repaired tools and increases the available quantity. |
+
+Each action is validated against the tool's available quantity and its previous movement records to help maintain inventory accuracy.
 
 ### Entity Relationship
 
@@ -325,23 +313,37 @@ Then open `ManufacturingToolTracker.slnx` in Visual Studio.
 
 ### 2. Configure the Database
 
-Ensure SQL Server is running and accessible.
+The project uses **two databases**, so you need two connection strings:
 
-Configure the API connection string in `appsettings.json` to match your SQL Server instance.
+| Database | Used by | Configured in |
+|---|---|---|
+| `ManufacturingToolTrackerDb` | Running the API (development) | `ManufacturingToolTracker.Api/appsettings.json` |
+| `ManufacturingToolTrackerTestDb` | Running the xUnit tests | `ManufacturingToolTracker.Tests/appsettings.json` |
 
-Example:
+
+#### 2.1 Configure the API connection string
+
+1. In **Solution Explorer**, open `ManufacturingToolTracker.Api/appsettings.json`.
+2. Copy and paste `ConnectionStrings`.
 
 ```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=ManufacturingToolTrackerDb;Trusted_Connection=True;TrustServerCertificate=True;"
-  }
-}
+"ConnectionStrings": {
+  "MANUFACTURING_TOOL_TRACKER_CONNECTION_STRING": "Server=localhost;Database=ManufacturingToolTrackerDb;Trusted_Connection=True;TrustServerCertificate=True;"
+},
 ```
 
-The connection string name must match the one used by the API's database configuration. The test project uses a separate `TestConnection` connection string.
+> **Note:** The connection string name must match the one used by the API's database configuration, so don't rename it.
+![Configuration of MANUFACTURING_TOOL_TRACKER_CONNECTION_STRING](ManufacturingToolTracker.Api/docs/images/appsetting-configuration/appsettings-json.png)
 
-Do not commit production passwords or other sensitive credentials to source control. Use user secrets or environment variables for sensitive configuration.
+#### 2.2 Configure the test connection string
+
+1. Open **SQL Server Management Studio**, server name is **localhost** and click **connect** .
+
+
+![Adding the xUnit test database connection string, step 1](ManufacturingToolTracker.Api/docs/images/add-xunit-test-db/add-xunit-test-db-1.png)
+
+![Adding the xUnit test database connection string, step 2](ManufacturingToolTracker.Api/docs/images/add-xunit-test-db/add-xunit-test-db-2.png)
+
 
 ### 3. Apply Database Migrations
 
@@ -351,6 +353,10 @@ This can be done through Visual Studio's Package Manager Console or another supp
 
 Ensure the correct database connection is selected before applying migrations.
 
+![Apply database migration, step 1](ManufacturingToolTracker.Api/docs/images/apply-database-migration/apply-database-migration-1.png)
+
+![Apply database migration, step 2](ManufacturingToolTracker.Api/docs/images/apply-database-migration/apply-database-migration-2.png)
+
 ### 4. Run the API
 
 1. Open the solution in Visual Studio.
@@ -358,6 +364,7 @@ Ensure the correct database connection is selected before applying migrations.
 3. Select the appropriate launch profile.
 4. Start the application.
 5. Open the Swagger URL displayed by the application if Swagger is enabled.
+6. Press **F5** 
 
 Use Swagger UI to inspect the endpoints and send test requests.
 
@@ -397,6 +404,10 @@ Ensure that the test project's connection string points to a dedicated test data
 
 Do not point automated tests at a production database. Tests may create, modify, and remove records.
 
+![Run test in visual studio, step 1](ManufacturingToolTracker.Api/docs/images/test/test-1.png)
+
+![Run test in visual studio, step 2](ManufacturingToolTracker.Api/docs/images/test/test-2.png)
+
 ## Concurrency Handling
 
 The application uses optimistic concurrency control to help prevent one user's changes from silently overwriting another user's update.
@@ -419,30 +430,6 @@ The `Tool` entity includes a `Version` property configured as a SQL Server rowve
 When Entity Framework Core updates the tool, it checks whether the database row still has the version originally loaded by the application.
 
 If another update has changed that row, the save can fail with `DbUpdateConcurrencyException`.
-
-The controller catches this exception and returns `409 Conflict`, allowing the client to retrieve the latest state before retrying.
-
-```mermaid
-sequenceDiagram
-    participant A as Employee A
-    participant B as Employee B
-    participant API as Web API
-    participant DB as SQL Server
-
-    A->>API: Load tool
-    B->>API: Load tool
-    API->>DB: Read quantity and version
-    DB-->>API: Return current state
-    API-->>A: Original tool state
-    API-->>B: Original tool state
-    A->>API: Submit movement
-    API->>DB: Save using original version
-    DB-->>API: Update succeeds
-    B->>API: Submit movement using stale version
-    API->>DB: Save using old version
-    DB-->>API: Version mismatch
-    API-->>B: 409 Conflict
-```
 
 Concurrency handling does not replace business-rule validation. The application must still verify stock quantities and outstanding movements before applying a change.
 
@@ -470,11 +457,6 @@ The SQL Server container runs in GitHub's CI environment. Docker does not need t
 3. Open the latest `.NET Build and Test` workflow run.
 4. Review the build and test results.
 
-## Screenshots
-
-### Swagger UI
-
-
 ## Project Structure
 
 ```text
@@ -485,14 +467,16 @@ ManufacturingToolTracker/
 │   │   └── ToolMovementsController.cs
 │   ├── Data/
 │   │   └── ApplicationDbContext.cs
-│   ├── Models/
-│   │   ├── Tool.cs
-│   │   ├── ToolMovement.cs
-│   │   └── ToolMovementActions.cs
+│   ├── docs/
+│   │   └── images/
 │   ├── DTOs/
 │   │   ├── CreateToolMovementDto.cs
 │   │   └── ToolMovementResponseDto.cs
 │   ├── Migrations/
+│   ├── Models/
+│   │   ├── Tool.cs
+│   │   ├── ToolMovement.cs
+│   │   └── ToolMovementActions.cs
 │   ├── appsettings.json
 │   └── Program.cs
 ├── ManufacturingToolTracker.Tests/

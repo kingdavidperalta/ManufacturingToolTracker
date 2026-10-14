@@ -141,7 +141,7 @@ A request that violates a business rule should not create a successful movement 
 
 ## API Endpoints
 
-![Swagger UI showing the ToolMovements and Tools endpoints](ManufacturingToolTracker.Api/docs/images/api-endpoints.png)
+![Swagger UI showing the ToolMovements and Tools endpoints](ManufacturingToolTracker.Api/docs/images/api-endpoints/api-endpoints.png)
 
 ### HTTP Response Codes
 

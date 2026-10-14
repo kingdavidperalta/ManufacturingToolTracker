@@ -357,6 +357,8 @@ Ensure the correct database connection is selected before applying migrations.
 
 ![Apply database migration, step 2](ManufacturingToolTracker.Api/docs/images/apply-database-migration/apply-database-migration-2.png)
 
+Press `Enter`.
+
 ### 4. Run the API
 
 1. Open the solution in Visual Studio.

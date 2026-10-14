@@ -21,7 +21,6 @@ namespace ManufacturingToolTracker.Tests
         {
             await using var context = CreateDbContext();
 
-            await context.Database.MigrateAsync();
 
             var canConnect = await context.Database.CanConnectAsync();
 
@@ -883,6 +882,36 @@ namespace ManufacturingToolTracker.Tests
 
                 await context.SaveChangesAsync();
             }
+        }
+
+
+
+        [Fact]
+        public async Task CreateMovement_ToolDoesNotExist_ReturnsNotFound()
+        {
+            await using var context = CreateDbContext();
+
+            var controller = new ToolMovementsController(context);
+
+            var nonexistentToolId = -1;
+
+            var dto = new CreateToolMovementDto
+            {
+                Action = ToolMovementActions.Checkout,
+                Quantity = 1,
+                PerformedBy = "Automated Test"
+            };
+
+            var result = await controller.CreateMovement(
+                nonexistentToolId,
+                dto);
+
+            Assert.IsType<NotFoundObjectResult>(result.Result);
+
+            var movementCount = await context.ToolMovements
+                .CountAsync(movement => movement.ToolId == nonexistentToolId);
+
+            Assert.Equal(0, movementCount);
         }
 
     }

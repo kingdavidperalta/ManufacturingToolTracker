@@ -975,5 +975,65 @@ namespace ManufacturingToolTracker.Tests
             }
         }
 
+        [Fact]
+        public async Task Return_ZeroQuantity_RejectsRequestWithoutChangingStock()
+        {
+            await using var context = CreateDbContext();
+
+            var tool = new Tool
+            {
+                ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                Name = "Test Tool",
+                Quantity = 10,
+                Status = "Available"
+            };
+
+            context.Tools.Add(tool);
+            await context.SaveChangesAsync();
+
+            try
+            {
+                var controller = new ToolMovementsController(context);
+
+                var dto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Return,
+                    Quantity = 0,
+                    PerformedBy = "Automated Test"
+                };
+
+                var result = await controller.CreateMovement(tool.Id, dto);
+
+                Assert.IsType<BadRequestObjectResult>(result.Result);
+
+                var savedTool = await context.Tools
+                    .SingleAsync(item => item.Id == tool.Id);
+
+                Assert.Equal(10, savedTool.Quantity);
+
+                var movementCount = await context.ToolMovements
+                    .CountAsync(movement => movement.ToolId == tool.Id);
+
+                Assert.Equal(0, movementCount);
+            }
+            finally
+            {
+                var movements = await context.ToolMovements
+                    .Where(movement => movement.ToolId == tool.Id)
+                    .ToListAsync();
+
+                context.ToolMovements.RemoveRange(movements);
+
+                var savedTool = await context.Tools
+                    .SingleOrDefaultAsync(item => item.Id == tool.Id);
+
+                if (savedTool != null)
+                {
+                    context.Tools.Remove(savedTool);
+                }
+
+                await context.SaveChangesAsync();
+            }
+        }
     }
 }

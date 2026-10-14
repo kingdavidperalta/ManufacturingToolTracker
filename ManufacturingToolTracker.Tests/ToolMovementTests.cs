@@ -1035,5 +1035,103 @@ namespace ManufacturingToolTracker.Tests
                 await context.SaveChangesAsync();
             }
         }
+
+        [Fact]
+        public async Task CreateMovement_ConcurrentUpdate_ReturnsConflict()
+        {
+            int toolId;
+
+            // Create a tool with an initial quantity of 10.
+            await using (var setupContext = CreateDbContext())
+            {
+                var tool = new Tool
+                {
+                    ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                    Name = "Concurrency Test Tool",
+                    Quantity = 10,
+                    Status = "Available"
+                };
+
+                setupContext.Tools.Add(tool);
+                await setupContext.SaveChangesAsync();
+
+                toolId = tool.Id;
+            }
+
+            try
+            {
+                await using var userAContext = CreateDbContext();
+                await using var userBContext = CreateDbContext();
+
+                // Both users load the same tool version.
+                var userATool = await userAContext.Tools
+                    .SingleAsync(tool => tool.Id == toolId);
+
+                var userBTool = await userBContext.Tools
+                    .SingleAsync(tool => tool.Id == toolId);
+
+                // User A checks out 3 units and saves first.
+                userATool.Quantity -= 3;
+
+                userAContext.ToolMovements.Add(new ToolMovement
+                {
+                    ToolId = toolId,
+                    Action = ToolMovementActions.Checkout,
+                    Quantity = 3,
+                    PerformedBy = "User A",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await userAContext.SaveChangesAsync();
+
+                // User B still has the old tool version.
+                var controller = new ToolMovementsController(userBContext);
+
+                var dto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Checkout,
+                    Quantity = 2,
+                    PerformedBy = "User B"
+                };
+
+                var result = await controller.CreateMovement(toolId, dto);
+
+                // The stale update should be rejected.
+                Assert.IsType<ConflictObjectResult>(result.Result);
+
+                // Verify the actual database state using a fresh context.
+                await using var verifyContext = CreateDbContext();
+
+                var savedTool = await verifyContext.Tools
+                    .SingleAsync(tool => tool.Id == toolId);
+
+                Assert.Equal(7, savedTool.Quantity);
+
+                var movementCount = await verifyContext.ToolMovements
+                    .CountAsync(movement => movement.ToolId == toolId);
+
+                Assert.Equal(1, movementCount);
+            }
+            finally
+            {
+                await using var cleanupContext = CreateDbContext();
+
+                var movements = await cleanupContext.ToolMovements
+                    .Where(movement => movement.ToolId == toolId)
+                    .ToListAsync();
+
+                cleanupContext.ToolMovements.RemoveRange(movements);
+
+                var tool = await cleanupContext.Tools
+                    .SingleOrDefaultAsync(item => item.Id == toolId);
+
+                if (tool != null)
+                {
+                    cleanupContext.Tools.Remove(tool);
+                }
+
+                await cleanupContext.SaveChangesAsync();
+            }
+        }
     }
 }

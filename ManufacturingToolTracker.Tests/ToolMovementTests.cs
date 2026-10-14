@@ -16,25 +16,7 @@ namespace ManufacturingToolTracker.Tests
         [Fact]
         public async Task TestDatabase_CanConnect_Succeeds()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: false)
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    "TestConnection is missing from appsettings.json.");
-            }
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             await context.Database.MigrateAsync();
 
@@ -45,23 +27,34 @@ namespace ManufacturingToolTracker.Tests
                 "Cannot connect to ManufacturingToolTrackerTestDb.");
         }
 
-
-        [Fact]
-        public async Task Checkout_ValidQuantity_ReducesStockAndRecordsMovement()
+        private static ApplicationDbContext CreateDbContext()
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddEnvironmentVariables()
                 .Build();
 
             var connectionString =
                 configuration.GetConnectionString("TestConnection");
 
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "TestConnection connection string is not configured.");
+            }
+
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseSqlServer(connectionString)
                 .Options;
 
-            await using var context = new ApplicationDbContext(options);
+            return new ApplicationDbContext(options);
+        }
+
+        [Fact]
+        public async Task Checkout_ValidQuantity_ReducesStockAndRecordsMovement()
+        {
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -127,19 +120,7 @@ namespace ManufacturingToolTracker.Tests
         [Fact]
         public async Task Checkout_InsufficientQuantity_RejectsRequestWithoutChangingStock()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -205,19 +186,7 @@ namespace ManufacturingToolTracker.Tests
         [Fact]
         public async Task Return_ExceedsNotYetReturnedQuantity_RejectsRequest()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -301,140 +270,116 @@ namespace ManufacturingToolTracker.Tests
 
 
       
-[Fact]
-public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
-{
-    var configuration = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json")
-        .Build();
-
-    var connectionString =
-        configuration.GetConnectionString("TestConnection");
-
-    var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseSqlServer(connectionString)
-        .Options;
-
-    await using var context = new ApplicationDbContext(options);
-
-    var tool = new Tool
-    {
-        ToolCode = $"T-{Guid.NewGuid():N}"[..20],
-        Name = "Test Tool",
-        Quantity = 5,
-        Status = "Available"
-    };
-
-    context.Tools.Add(tool);
-    await context.SaveChangesAsync();
-
-    try
-    {
-        var controller = new ToolMovementsController(context);
-
-        // Arrange: check out 3 tools through the controller.
-        var checkoutDto = new CreateToolMovementDto
+        [Fact]
+        public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         {
-            Action = ToolMovementActions.Checkout,
-            Quantity = 3,
-            PerformedBy = "Automated Test"
-        };
+            await using var context = CreateDbContext();
 
-        var checkoutResult =
-            await controller.CreateMovement(tool.Id, checkoutDto);
+            var tool = new Tool
+            {
+                ToolCode = $"T-{Guid.NewGuid():N}"[..20],
+                Name = "Test Tool",
+                Quantity = 5,
+                Status = "Available"
+            };
 
-        Assert.IsType<CreatedAtActionResult>(checkoutResult.Result);
+            context.Tools.Add(tool);
+            await context.SaveChangesAsync();
 
-        // Verify that only 2 tools remain available.
-        context.ChangeTracker.Clear();
+            try
+            {
+                var controller = new ToolMovementsController(context);
 
-        var toolAfterCheckout = await context.Tools
-            .AsNoTracking()
-            .SingleAsync(item => item.Id == tool.Id);
+                // Arrange: check out 3 tools through the controller.
+                var checkoutDto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Checkout,
+                    Quantity = 3,
+                    PerformedBy = "Automated Test"
+                };
 
-        Assert.Equal(2, toolAfterCheckout.Quantity);
+                var checkoutResult =
+                    await controller.CreateMovement(tool.Id, checkoutDto);
 
-        // Act: return 2 tools through the controller.
-        var returnDto = new CreateToolMovementDto
-        {
-            Action = ToolMovementActions.Return,
-            Quantity = 2,
-            PerformedBy = "Automated Test"
-        };
+                Assert.IsType<CreatedAtActionResult>(checkoutResult.Result);
 
-        var returnResult =
-            await controller.CreateMovement(tool.Id, returnDto);
+                // Verify that only 2 tools remain available.
+                context.ChangeTracker.Clear();
 
-        // Assert: the return succeeds.
-        Assert.IsType<CreatedAtActionResult>(returnResult.Result);
+                var toolAfterCheckout = await context.Tools
+                    .AsNoTracking()
+                    .SingleAsync(item => item.Id == tool.Id);
 
-        context.ChangeTracker.Clear();
+                Assert.Equal(2, toolAfterCheckout.Quantity);
 
-        var updatedTool = await context.Tools
-            .AsNoTracking()
-            .SingleAsync(item => item.Id == tool.Id);
+                // Act: return 2 tools through the controller.
+                var returnDto = new CreateToolMovementDto
+                {
+                    Action = ToolMovementActions.Return,
+                    Quantity = 2,
+                    PerformedBy = "Automated Test"
+                };
 
-        var returnMovement = await context.ToolMovements
-            .AsNoTracking()
-            .SingleAsync(item =>
-                item.ToolId == tool.Id &&
-                item.Action == ToolMovementActions.Return);
+                var returnResult =
+                    await controller.CreateMovement(tool.Id, returnDto);
 
-        var totalCheckedOut = await context.ToolMovements
-            .Where(item =>
-                item.ToolId == tool.Id &&
-                item.Action == ToolMovementActions.Checkout)
-            .SumAsync(item => item.Quantity);
+                // Assert: the return succeeds.
+                Assert.IsType<CreatedAtActionResult>(returnResult.Result);
 
-        var totalReturned = await context.ToolMovements
-            .Where(item =>
-                item.ToolId == tool.Id &&
-                item.Action == ToolMovementActions.Return)
-            .SumAsync(item => item.Quantity);
+                context.ChangeTracker.Clear();
 
-        Assert.Equal(4, updatedTool.Quantity);
-        Assert.Equal(2, returnMovement.Quantity);
-        Assert.Equal(ToolMovementActions.Return, returnMovement.Action);
-        Assert.Equal(1, totalCheckedOut - totalReturned);
-    }
-    finally
-    {
-        var movements = await context.ToolMovements
-            .Where(item => item.ToolId == tool.Id)
-            .ToListAsync();
+                var updatedTool = await context.Tools
+                    .AsNoTracking()
+                    .SingleAsync(item => item.Id == tool.Id);
 
-        context.ToolMovements.RemoveRange(movements);
+                var returnMovement = await context.ToolMovements
+                    .AsNoTracking()
+                    .SingleAsync(item =>
+                        item.ToolId == tool.Id &&
+                        item.Action == ToolMovementActions.Return);
 
-        var savedTool = await context.Tools.FindAsync(tool.Id);
+                var totalCheckedOut = await context.ToolMovements
+                    .Where(item =>
+                        item.ToolId == tool.Id &&
+                        item.Action == ToolMovementActions.Checkout)
+                    .SumAsync(item => item.Quantity);
 
-        if (savedTool is not null)
-        {
-            context.Tools.Remove(savedTool);
+                var totalReturned = await context.ToolMovements
+                    .Where(item =>
+                        item.ToolId == tool.Id &&
+                        item.Action == ToolMovementActions.Return)
+                    .SumAsync(item => item.Quantity);
+
+                Assert.Equal(4, updatedTool.Quantity);
+                Assert.Equal(2, returnMovement.Quantity);
+                Assert.Equal(ToolMovementActions.Return, returnMovement.Action);
+                Assert.Equal(1, totalCheckedOut - totalReturned);
+            }
+            finally
+            {
+                var movements = await context.ToolMovements
+                    .Where(item => item.ToolId == tool.Id)
+                    .ToListAsync();
+
+                context.ToolMovements.RemoveRange(movements);
+
+                var savedTool = await context.Tools.FindAsync(tool.Id);
+
+                if (savedTool is not null)
+                {
+                    context.Tools.Remove(savedTool);
+                }
+
+                await context.SaveChangesAsync();
+            }
         }
-
-        await context.SaveChangesAsync();
-    }
-}
 
 
 
         [Fact]
         public async Task Damage_ExceedsAvailableQuantity_RejectsRequest()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -499,19 +444,7 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         [Fact]
         public async Task Damage_ValidQuantity_ReducesStockAndRecordsMovement()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -578,19 +511,7 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         [Fact]
         public async Task Repair_ValidQuantity_IncreasesStockAndRecordsMovement()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -701,19 +622,7 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         [Fact]
         public async Task Repair_ExceedsNotYetRepairedQuantity_RejectsRequest()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -821,19 +730,7 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         [Fact]
         public async Task Checkout_ZeroQuantity_RejectsRequestWithoutChangingStock()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {
@@ -899,19 +796,7 @@ public async Task Return_ValidQuantity_IncreasesStockAndRecordsMovement()
         [Fact]
         public async Task Checkout_NegativeQuantity_RejectsRequestWithoutChangingStock()
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json")
-                .Build();
-
-            var connectionString =
-                configuration.GetConnectionString("TestConnection");
-
-            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseSqlServer(connectionString)
-                .Options;
-
-            await using var context = new ApplicationDbContext(options);
+            await using var context = CreateDbContext();
 
             var tool = new Tool
             {

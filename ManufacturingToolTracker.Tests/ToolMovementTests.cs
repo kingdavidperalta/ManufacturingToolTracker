@@ -13,6 +13,9 @@ namespace ManufacturingToolTracker.Tests
 {
     public class ToolMovementTests
     {
+        private static readonly object MigrationLock = new();
+        private static volatile bool _databaseMigrated;
+
         [Fact]
         public async Task TestDatabase_CanConnect_Succeeds()
         {
@@ -48,7 +51,31 @@ namespace ManufacturingToolTracker.Tests
                 .UseSqlServer(connectionString)
                 .Options;
 
+            EnsureDatabaseMigrated(options);
+
             return new ApplicationDbContext(options);
+        }
+
+        private static void EnsureDatabaseMigrated(
+            DbContextOptions<ApplicationDbContext> options)
+        {
+            if (_databaseMigrated)
+            {
+                return;
+            }
+
+            lock (MigrationLock)
+            {
+                if (_databaseMigrated)
+                {
+                    return;
+                }
+
+                using var migrationContext = new ApplicationDbContext(options);
+                migrationContext.Database.Migrate();
+
+                _databaseMigrated = true;
+            }
         }
 
         [Fact]

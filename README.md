@@ -105,8 +105,8 @@ The `Action` identifies the type of tool movement recorded in the system..
 |---|---|
 | `Checkout` | Records tools issued for use and decreases the available quantity. |
 | `Return` | Records tools returned after checkout and increases the available quantity. |
-| `Repair` | Records tools reported as damaged and decreases the available quantity. |
-| `Damange` | Records repaired tools and increases the available quantity. |
+| `Repair` | Records repaired tools and increases the available quantity. |
+| `Damage` | Records tools reported as damaged and decreases the available quantity. |
 
 Each action is validated against the tool's available quantity and its previous movement records to help maintain inventory accuracy.
 
@@ -335,13 +335,16 @@ The project uses **two databases**, so you need two connection strings:
 > **Note:** The connection string name must match the one used by the API's database configuration, so don't rename it.
 ![Configuration of MANUFACTURING_TOOL_TRACKER_CONNECTION_STRING](ManufacturingToolTracker.Api/docs/images/appsetting-configuration/appsettings-json.png)
 
-#### 2.2 Configure the test connection string
+#### 2.2 Create the Test Database
 
-1. Open **SQL Server Management Studio**, server name is **localhost** and click **connect** .
-
+1. Open **SQL Server Management Studio (SSMS)**.
+2. Enter **localhost** as the server name and click **Connect**.
 
 ![Adding the xUnit test database connection string, step 1](ManufacturingToolTracker.Api/docs/images/add-xunit-test-db/add-xunit-test-db-1.png)
 
+1. Click **New Query** on the toolbar.
+2. Enter your SQL query in the query editor.
+3. Click **Execute** on the toolbar to run the query.
 ![Adding the xUnit test database connection string, step 2](ManufacturingToolTracker.Api/docs/images/add-xunit-test-db/add-xunit-test-db-2.png)
 
 
@@ -353,11 +356,15 @@ This can be done through Visual Studio's Package Manager Console or another supp
 
 Ensure the correct database connection is selected before applying migrations.
 
+1. Click the **Tools** menu on the menu bar.
+2. From the drop-down menu select, **Nugget Package Manager**
+3. Click the **Package Console Manager** menu on the drop-down side menu.
+
 ![Apply database migration, step 1](ManufacturingToolTracker.Api/docs/images/apply-database-migration/apply-database-migration-1.png)
 
+4. Type the **Update-Database** from the **Package Console Manager** and Press **Enter**.
 ![Apply database migration, step 2](ManufacturingToolTracker.Api/docs/images/apply-database-migration/apply-database-migration-2.png)
 
-Press `Enter`.
 
 ### 4. Run the API
 
@@ -365,8 +372,7 @@ Press `Enter`.
 2. Set `ManufacturingToolTracker.Api` as the startup project.
 3. Select the appropriate launch profile.
 4. Start the application.
-5. Open the Swagger URL displayed by the application if Swagger is enabled.
-6. Press **F5** 
+5. Press **F5** 
 
 Use Swagger UI to inspect the endpoints and send test requests.
 
@@ -406,8 +412,12 @@ Ensure that the test project's connection string points to a dedicated test data
 
 Do not point automated tests at a production database. Tests may create, modify, and remove records.
 
+1. Click the **View** menu on the menu bar.
+
 ![Run test in visual studio, step 1](ManufacturingToolTracker.Api/docs/images/test/test-1.png)
 
+2. From the drop-down menu, select **Test Explorer**.
+3. Click the Run button the green triangle to execute the tests.
 ![Run test in visual studio, step 2](ManufacturingToolTracker.Api/docs/images/test/test-2.png)
 
 ## Concurrency Handling
